@@ -50,8 +50,9 @@ class TwitterManager {
 
 export const TwitterClientInterface: Client = {
     async start(runtime: IAgentRuntime) {
-        const twitterConfig: TwitterConfig =
-            await validateTwitterConfig(runtime);
+        const twitterConfig: TwitterConfig = await validateTwitterConfig(
+            runtime
+        );
 
         elizaLogger.log("Twitter client started");
 
@@ -76,6 +77,37 @@ export const TwitterClientInterface: Client = {
             manager.space.startPeriodicSpaceCheck();
         }
 
+        return manager;
+    },
+
+    async stop(_runtime: IAgentRuntime) {
+        elizaLogger.warn("Twitter client does not support stopping yet");
+    },
+};
+
+interface ShillClient extends Omit<Client, "start"> {
+    start(
+        runtime: IAgentRuntime,
+        coinName: string,
+        coinSymbol: string
+    ): Promise<unknown>;
+}
+
+export const TwitterPostClientInterface: ShillClient = {
+    async start(runtime: IAgentRuntime, coinName: string, coinSymbol: string) {
+        const twitterConfig: TwitterConfig = await validateTwitterConfig(
+            runtime
+        );
+
+        elizaLogger.log("Twitter client started");
+
+        const manager = new TwitterManager(runtime, twitterConfig);
+        // Initialize login/session
+        await manager.client.init();
+        // Generate and post a new tweet immediately
+        await manager.post.generateNewShillTweet(coinSymbol, coinName);
+
+        // Return the manager for potential future use
         return manager;
     },
 

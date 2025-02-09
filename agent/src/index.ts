@@ -131,7 +131,7 @@ import { openaiPlugin } from "@elizaos/plugin-openai";
 import nitroPlugin from "@elizaos/plugin-router-nitro";
 import { devinPlugin } from "@elizaos/plugin-devin";
 import { zksyncEraPlugin } from "@elizaos/plugin-zksync-era";
-import { chainbasePlugin } from "@elizaos/plugin-chainbase";
+// import { chainbasePlugin } from "@elizaos/plugin-chainbase";
 import { holdstationPlugin } from "@elizaos/plugin-holdstation";
 import { nvidiaNimPlugin } from "@elizaos/plugin-nvidia-nim";
 import { zxPlugin } from "@elizaos/plugin-0x";
@@ -155,10 +155,11 @@ import { ankrPlugin } from "@elizaos/plugin-ankr";
 import { formPlugin } from "@elizaos/plugin-form";
 import { MongoClient } from "mongodb";
 import { quickIntelPlugin } from "@elizaos/plugin-quick-intel";
-
+import { ruggedPlugin } from "@elizaos/plugin-rugged";
 import { trikonPlugin } from "@elizaos/plugin-trikon";
 import arbitragePlugin from "@elizaos/plugin-arbitrage";
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
+
 const __dirname = path.dirname(__filename); // get the name of the directory
 
 export const wait = (minTime = 1000, maxTime = 3000) => {
@@ -490,6 +491,7 @@ export async function loadCharacters(
 async function handlePluginImporting(plugins: string[]) {
     if (plugins.length > 0) {
         elizaLogger.info("Plugins are: ", plugins);
+        console.log("Plugins are: ", plugins);
         const importedPlugins = await Promise.all(
             plugins.map(async (plugin) => {
                 try {
@@ -1016,6 +1018,7 @@ export async function createAgent(
         character,
         // character.plugins are handled when clients are added
         plugins: [
+            ruggedPlugin,
             parseBooleanFromText(getSecret(character, "BITMIND")) &&
             getSecret(character, "BITMIND_API_TOKEN")
                 ? bittensorPlugin
@@ -1218,7 +1221,7 @@ export async function createAgent(
             getSecret(character, "AKASH_WALLET_ADDRESS")
                 ? akashPlugin
                 : null,
-            getSecret(character, "CHAINBASE_API_KEY") ? chainbasePlugin : null,
+            // getSecret(character, "CHAINBASE_API_KEY") ? chainbasePlugin : null,
             getSecret(character, "QUAI_PRIVATE_KEY") ? quaiPlugin : null,
             getSecret(character, "RESERVOIR_API_KEY")
                 ? createNFTCollectionsPlugin()

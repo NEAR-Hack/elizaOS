@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
         envDir,
         define: {
             "import.meta.env.VITE_SERVER_PORT": JSON.stringify(
-                env.SERVER_PORT || "3000"
+                env.SERVER_PORT || "3001"
             ),
         },
         build: {

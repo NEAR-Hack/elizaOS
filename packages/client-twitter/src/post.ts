@@ -114,6 +114,8 @@ export class TwitterPostClient {
 
         // Log configuration on initialization
         elizaLogger.log("Twitter Client Configuration:");
+        elizaLogger.log(`- Agent ID: ${this.runtime.agentId}`);
+        elizaLogger.log(`- Client: ${this.client}`);
         elizaLogger.log(`- Username: ${this.twitterUsername}`);
         elizaLogger.log(
             `- Dry Run Mode: ${this.isDryRun ? "enabled" : "disabled"}`
@@ -487,23 +489,205 @@ export class TwitterPostClient {
         }
     }
 
+    async generateNewShillTweet(coinSymbol: string, coinName: string) {
+        // template for a specific coin
+        const cryptoShillTemplate = `
+        # Areas of Expertise
+        {{knowledge}}
+
+        # About {{agentName}} (@{{twitterUserName}}):
+        {{bio}}
+        {{lore}}
+        {{topics}}
+
+        {{providers}}
+
+        {{characterPostExamples}}
+
+        {{postDirections}}
+
+        # Task: Generate a post in the voice and style and perspective of {{agentName}} @{{twitterUserName}}.
+        Write a post that is {{adjective}} about {{coinName}} (${{
+            coinSymbol,
+        }}) from the perspective of {{agentName}}. Do not add commentary or acknowledge this request, just write the post.
+        Your response should be 1, 2, or 3 sentences (choose the length at random).
+        Your response should not contain any questions. Brief, concise statements only. The total character count MUST be less than {{maxTweetLength}}. No emojis. Use \\n\\n (double spaces) between statements if there are multiple statements in your response.
+        
+        The post should highlight the potential and value of {{coinName}} (${{
+            coinSymbol,
+        }}) in a natural, authentic way without being overly promotional. Focus on real use cases, technology, or market dynamics that make {{coinName}} interesting.`;
+        elizaLogger.log(
+            `Generating new shill tweet for ${coinName} (${coinSymbol})`
+        );
+
+        try {
+            const roomId = stringToUuid(
+                `twitter_shill_room-${this.client.profile.username}-${coinSymbol}`
+            );
+
+            try {
+                await this.runtime.ensureUserExists(
+                    this.runtime.agentId,
+                    this.client.profile.username,
+                    this.runtime.character.name,
+                    "twitter"
+                );
+            } catch (error) {
+                elizaLogger.error("Error in ensureUserExists:", error);
+                throw error;
+            }
+
+            const maxTweetLength = this.client.twitterConfig.MAX_TWEET_LENGTH;
+            const state = await this.runtime.composeState(
+                {
+                    userId: this.runtime.agentId,
+                    roomId: roomId,
+                    agentId: this.runtime.agentId,
+                    content: {
+                        text: `Shill tweet for ${coinName}`,
+                        action: "TWEET",
+                    },
+                },
+                {
+                    twitterUserName: this.client.profile.username,
+                    maxTweetLength,
+                    coinName,
+                    symbol: coinSymbol,
+                }
+            );
+
+            const context = composeContext({
+                state,
+                template: cryptoShillTemplate,
+            });
+
+            elizaLogger.debug("generate shill post prompt:\n" + context);
+
+            const response = await generateText({
+                runtime: this.runtime,
+                context,
+                modelClass: ModelClass.SMALL,
+            });
+
+            const rawTweetContent = cleanJsonResponse(response);
+
+            // First attempt to clean content
+            let tweetTextForPosting = null;
+
+            // Try parsing as JSON first
+            const parsedResponse = parseJSONObjectFromText(rawTweetContent);
+            if (parsedResponse?.text) {
+                tweetTextForPosting = parsedResponse.text;
+            }
+
+            // Try extracting text attribute
+            if (!tweetTextForPosting) {
+                const parsingText = extractAttributes(rawTweetContent, [
+                    "text",
+                ]).text;
+                if (parsingText) {
+                    tweetTextForPosting = truncateToCompleteSentence(
+                        extractAttributes(rawTweetContent, ["text"]).text,
+                        maxTweetLength
+                    );
+                }
+            }
+
+            // Use the raw text
+            if (!tweetTextForPosting) {
+                tweetTextForPosting = rawTweetContent;
+            }
+
+            // Truncate the content
+            if (maxTweetLength) {
+                tweetTextForPosting = truncateToCompleteSentence(
+                    tweetTextForPosting,
+                    maxTweetLength
+                );
+            }
+
+            const removeQuotes = (str: string) =>
+                str.replace(/^['"](.*)['"]$/, "$1");
+
+            const fixNewLines = (str: string) => str.replaceAll(/\\n/g, "\n\n");
+
+            // Final cleaning
+            tweetTextForPosting = removeQuotes(
+                fixNewLines(tweetTextForPosting)
+            );
+
+            if (this.isDryRun) {
+                elizaLogger.info(
+                    `Dry run: would have posted shill tweet: ${tweetTextForPosting}`
+                );
+                return;
+            }
+
+            try {
+                if (this.approvalRequired) {
+                    elizaLogger.log(
+                        `Sending Shill Tweet For Approval:\n ${tweetTextForPosting}`
+                    );
+                    await this.sendForApproval(
+                        tweetTextForPosting,
+                        roomId,
+                        rawTweetContent
+                    );
+                    elizaLogger.log("Shill tweet sent for approval");
+                } else {
+                    elizaLogger.log(
+                        `Posting new shill tweet:\n ${tweetTextForPosting}`
+                    );
+                    await this.postTweet(
+                        this.runtime,
+                        this.client,
+                        tweetTextForPosting,
+                        roomId,
+                        rawTweetContent,
+                        this.twitterUsername
+                    );
+                }
+            } catch (error) {
+                elizaLogger.error("Error sending shill tweet:", error);
+            }
+        } catch (error) {
+            elizaLogger.error("Error generating new shill tweet:", error);
+            elizaLogger.error("Error details:", {
+                message: error.message,
+                stack: error.stack,
+                runtime: {
+                    agentId: this.runtime.agentId,
+                    username: this.client.profile?.username,
+                    characterName: this.runtime.character?.name,
+                },
+            });
+            throw error;
+        }
+    }
+
     /**
      * Generates and posts a new tweet. If isDryRun is true, only logs what would have been posted.
      */
     async generateNewTweet() {
         elizaLogger.log("Generating new tweet");
-
+        elizaLogger.log("client", this.client.profile.username);
         try {
             const roomId = stringToUuid(
                 "twitter_generate_room-" + this.client.profile.username
             );
-            await this.runtime.ensureUserExists(
-                this.runtime.agentId,
-                this.client.profile.username,
-                this.runtime.character.name,
-                "twitter"
-            );
 
+            // Add detailed error catching
+            try {
+                await this.runtime.ensureUserExists(
+                    this.runtime.agentId,
+                    this.client.profile.username,
+                    this.runtime.character.name,
+                    "twitter"
+                );
+            } catch (error) {
+                elizaLogger.error("Error in ensureUserExists:", error);
+                throw error;
+            }
             const topics = this.runtime.character.topics.join(", ");
             const maxTweetLength = this.client.twitterConfig.MAX_TWEET_LENGTH;
             const state = await this.runtime.composeState(
@@ -528,6 +712,7 @@ export class TwitterPostClient {
                     this.runtime.character.templates?.twitterPostTemplate ||
                     twitterPostTemplate,
             });
+            elizaLogger.debug("Template:\n" + this.runtime.character.templates);
 
             elizaLogger.debug("generate post prompt:\n" + context);
 
@@ -630,6 +815,17 @@ export class TwitterPostClient {
             }
         } catch (error) {
             elizaLogger.error("Error generating new tweet:", error);
+            // Add the actual error details
+            elizaLogger.error("Error details:", {
+                message: error.message,
+                stack: error.stack,
+                runtime: {
+                    agentId: this.runtime.agentId,
+                    username: this.client.profile?.username,
+                    characterName: this.runtime.character?.name,
+                },
+            });
+            throw error;
         }
     }
 

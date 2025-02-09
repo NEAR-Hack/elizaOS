@@ -18,6 +18,7 @@ import type { TeeLogQuery, TeeLogService } from "@elizaos/plugin-tee-log";
 import { REST, Routes } from "discord.js";
 import type { DirectClient } from ".";
 import { validateUuid } from "@elizaos/core";
+import { TwitterPostClientInterface } from "@elizaos/client-twitter";
 
 interface UUIDParams {
     agentId: UUID;
@@ -69,6 +70,41 @@ export function createApiRouter(
         res.send("Welcome, this is the REST API!");
     });
 
+    router.get("/post-tweet", async (req, res) => {
+        res.status(200).send("Tweet posted route registered");
+    });
+
+    // post tweet
+
+    router.post("/post-tweet/:agentId", async (req, res) => {
+        const { agentId } = validateUUIDParams(req.params, res) ?? {
+            agentId: null,
+        };
+        if (!agentId) return;
+        const agent = agents.get(agentId);
+
+        const coinSymbol = req.body.coinSymbol;
+        const coinName = req.body.coinName;
+        if (!agent) {
+            res.status(404).json({ error: "Agent not found" });
+            return;
+        }
+        try {
+            const twitterClient = await TwitterPostClientInterface.start(
+                agent,
+                coinSymbol,
+                coinName
+            );
+            if (!twitterClient) {
+                res.status(500).send("Failed to post with Twitter client");
+                return;
+            }
+            res.status(200).send("Tweet posted successfully");
+        } catch (error) {
+            res.status(500).send("Error posting tweet: " + error.message);
+        }
+    });
+
     router.get("/hello", (req, res) => {
         res.json({ message: "Hello World!" });
     });
@@ -82,7 +118,7 @@ export function createApiRouter(
         res.json({ agents: agentsList });
     });
 
-    router.get('/storage', async (req, res) => {
+    router.get("/storage", async (req, res) => {
         try {
             const uploadDir = path.join(process.cwd(), "data", "characters");
             const files = await fs.promises.readdir(uploadDir);
@@ -416,8 +452,9 @@ export function createApiRouter(
                     characterJson
                 );
             } else if (characterPath) {
-                character =
-                    await directClient.loadCharacterTryPath(characterPath);
+                character = await directClient.loadCharacterTryPath(
+                    characterPath
+                );
             } else {
                 throw new Error("No character path or JSON provided");
             }
