@@ -1,6 +1,10 @@
 {
     "name": "Rugged",
-    "plugins": ["@elizaos/plugin-web-search", "@elizaos/plugin-rugged"],
+    "plugins": [
+        "@elizaos/plugin-web-search",
+        "@elizaos/plugin-rugged",
+        "@elizaos/plugin-news"
+    ],
     "clients": ["twitter"],
     "modelProvider": "openai",
     "settings": {
