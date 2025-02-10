@@ -70,28 +70,13 @@ export const currentNewsAction: Action = {
                     new Map(
                         allArticles.map((article) => [article.title, article])
                     ).values()
-                ).slice(0, 15);
+                ).slice(0, 6);
 
                 if (!uniqueArticles.length) {
                     return "No news articles found.";
                 }
 
-                return uniqueArticles
-                    .map((article, index) => {
-                        const content =
-                            article.description || "No content available";
-                        const urlDomain = article.url
-                            ? new URL(article.url).hostname
-                            : "";
-                        return [
-                            `📰 Article ${index + 1}`,
-                            "━━━━━━━━━━━━━━━━━━━━━━",
-                            `📌 **${article.title || "No title"}**\n`,
-                            `📝 ${content}\n`,
-                            `🔗 Read more at: ${urlDomain}`,
-                        ].join("\n");
-                    })
-                    .join("\n");
+                return uniqueArticles;
             } catch (error) {
                 console.error("Failed to fetch news:", error);
                 return "Sorry, there was an error fetching the news.";
@@ -116,18 +101,42 @@ Return just the topic with no additional text, punctuation, or explanation.`;
 
         // For debugging
         console.log("Search term extracted:", searchTerm);
+        let currentNews = "";
+        const UniqueNews = await getCurrentNews(searchTerm);
 
-        const currentNews = await getCurrentNews(searchTerm);
-        const responseText = ` *protocol droid noises*\n\n${currentNews}`;
+        if (typeof UniqueNews === "string") {
+            currentNews = UniqueNews;
+        } else {
+            currentNews = UniqueNews.map((article, index) => {
+                const content = article.description || "No content available";
+                const urlDomain = article.url
+                    ? new URL(article.url).hostname
+                    : "";
+                return [
+                    `📰 Article ${index + 1}`,
+                    "━━━━━━━━━━━━━━━━━━━━━━",
+                    `📌 **${article.title || "No title"}**\n`,
+                    `📝 ${content}\n`,
+                    `🔗 Read more at: ${urlDomain}`,
+                ].join("\n");
+            }).join("\n");
+        }
+
+        // Create JSON data object
+        const jsonData = {
+            searchTerm,
+            articles: UniqueNews,
+        };
 
         const newMemory: Memory = {
             userId: _message.agentId,
             agentId: _message.agentId,
             roomId: _message.roomId,
             content: {
-                text: responseText,
+                text: currentNews,
                 action: "CURRENT_NEWS_RESPONSE",
                 source: _message.content?.source,
+                data: jsonData, // Attach JSON data
             } as Content,
         };
 
