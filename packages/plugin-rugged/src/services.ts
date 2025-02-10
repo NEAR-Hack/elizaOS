@@ -54,7 +54,7 @@ export const getTokenDevHolding = async (
     }
 };
 
-export const getTokenMarketcap = async (
+export const getTokenVolumeMarketcap = async (
     token_address: string
 ): Promise<TokenVolumeMarketcapResponse> => {
     try {
@@ -72,7 +72,9 @@ export const getTokenMarketcap = async (
 export const getTopTokenMarketcap =
     async (): Promise<TopTokenMarketCapResponse> => {
         try {
-            const response = await fetch(`${SERVER_URL}/pump-top-market-cap`);
+            const response = await fetch(
+                `${SERVER_URL}/tools/pump-top-market-cap`
+            );
 
             const data = await response.json();
             return data;
@@ -81,4 +83,3 @@ export const getTopTokenMarketcap =
             throw error;
         }
     };
-

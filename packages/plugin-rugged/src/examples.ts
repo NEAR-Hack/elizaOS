@@ -363,7 +363,6 @@ export const getTokenInformationExample: ActionExample[][] = [
     ],
 ];
 
-
 export const getTokenTopHoldersExample: ActionExample[][] = [
     [
         {
@@ -391,7 +390,7 @@ export const getTokenTopHoldersExample: ActionExample[][] = [
             user: "{{agent}}",
             content: {
                 text: "I'll look up the largest holders of this token for you.",
-                action: "GET_TOKEN_TOP_HOLDERS", 
+                action: "GET_TOKEN_TOP_HOLDERS",
             },
         },
     ],
@@ -425,4 +424,62 @@ export const getTokenTopHoldersExample: ActionExample[][] = [
             },
         },
     ],
-];  
+];
+
+export const getSleeperTokensExample: ActionExample[][] = [
+    [
+        {
+            user: "{{user1}}",
+            content: {
+                text: "Can you find some sleeper tokens with strong holders but low trading volume?",
+            },
+        },
+        {
+            user: "{{agent}}",
+            content: {
+                text: "I'll search for tokens with strong holders and low trading volume.",
+                action: "GET_SLEEPER_TOKENS",
+                response: {
+                    text: `🔍 Potential Sleeper Tokens Analysis
+
+| Token | Top Holders % | Vol/MCap % | Market Cap ($) |
+|--------|--------------|------------|---------------|
+| Bonk (BONK) | 65.32% | 2.1% | $125,000,000 |
+| Meme Coin (MEME) | 72.15% | 1.8% | $5,230,450 |
+| Sample Token (SAMP) | 58.90% | 3.2% | $890,230 |
+
+💡 These tokens show strong accumulation patterns with high holder concentration and low trading volume relative to their market cap. This could indicate potential future price movement.`,
+                    content: [
+                        {
+                            token_name: "Bonk",
+                            symbol: "BONK",
+                            mint_address:
+                                "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+                            top_holders_percentage: "65.32",
+                            volume_to_mcap: "2.1",
+                            market_cap: "125000000.00",
+                        },
+                        {
+                            token_name: "Meme Coin",
+                            symbol: "MEME",
+                            mint_address:
+                                "MeMeX8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+                            top_holders_percentage: "72.15",
+                            volume_to_mcap: "1.8",
+                            market_cap: "5230450.00",
+                        },
+                        {
+                            token_name: "Sample Token",
+                            symbol: "SAMP",
+                            mint_address:
+                                "SaMpXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+                            top_holders_percentage: "58.90",
+                            volume_to_mcap: "3.2",
+                            market_cap: "890230.00",
+                        },
+                    ],
+                },
+            },
+        },
+    ],
+];

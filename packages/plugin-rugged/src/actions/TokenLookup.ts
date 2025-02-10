@@ -14,10 +14,15 @@ import { validateRuggedConfig } from "../environment";
 import {
     getTokenInformationExample,
     getTokenTopHoldersExample,
+    getSleeperTokensExample,
 } from "../examples";
-import { getTokenInformation, getTokenTopHolders } from "../services";
+import {
+    getTokenInformation,
+    getTokenTopHolders,
+    getTokenVolumeMarketcap,
+    getTopTokenMarketcap,
+} from "../services";
 import { getTokenInformationTemplate } from "../templates";
-
 export const GET_TOKEN_INFORMATION: Action = {
     name: "GET_TOKEN_INFORMATION",
     similes: [
@@ -164,13 +169,16 @@ export const GET_TOKEN_TOP_HOLDERS: Action = {
                 const header = `| Rank | Address | Percentage |`;
                 const separator = `|------|---------|------------|`;
                 const rows = tokenTopHolders
-                    .map((holder, index) => 
-                        `| ${index + 1} | ${holder.holder_address} | ${holder.percentage}% |`
+                    .map(
+                        (holder, index) =>
+                            `| ${index + 1} | ${holder.holder_address} | ${
+                                holder.percentage
+                            }% |`
                     )
                     .join("\n");
-                
+
                 callback({
-                    text: `${title}\n\n${header}\n${separator}\n${rows}`
+                    text: `${title}\n\n${header}\n${separator}\n${rows}`,
                 });
             }
         } catch (error: any) {
@@ -182,3 +190,151 @@ export const GET_TOKEN_TOP_HOLDERS: Action = {
     },
     examples: getTokenTopHoldersExample as ActionExample[][],
 } as Action;
+
+// ... existing code ...
+
+export const GET_SLEEPER_TOKENS: Action = {
+    name: "GET_SLEEPER_TOKENS",
+    similes: [
+        "FIND_SLEEPER_COINS",
+        "POTENTIAL_PUMPS",
+        "HIDDEN_GEMS",
+        "UNDERVALUED_TOKENS",
+        "LOW_VOLUME_STRONG_HOLDERS",
+    ],
+    description:
+        "Identify potential 'sleeper' tokens with strong holders but low trading volume/hype",
+    validate: async (runtime: IAgentRuntime) => {
+        await validateRuggedConfig(runtime);
+        return true;
+    },
+    handler: async (
+        runtime: IAgentRuntime,
+        message: Memory,
+        state: State,
+        _options: { [key: string]: unknown },
+        callback: HandlerCallback
+    ) => {
+        // Instantiate API service
+        const config = await validateRuggedConfig(runtime);
+
+        try {
+            // Get tokens with strong holders
+            const topTokenMarketcap = await getTopTokenMarketcap();
+            const sleeperTokens = [];
+
+            // Process each token from top market cap list
+            for (const token of topTokenMarketcap) {
+                try {
+                    // Get token address from market cap data
+                    const tokenAddress =
+                        token.TokenSupplyUpdate.Currency.MintAddress;
+
+                    // Get volume data for this token
+                    const volumeData = await getTokenVolumeMarketcap(
+                        tokenAddress
+                    );
+
+                    // Get top holders for this token
+                    const topHolders = await getTokenTopHolders(tokenAddress);
+
+                    // Skip if we don't have all the data
+                    if (!volumeData?.data?.[0] || !topHolders?.length) continue;
+
+                    // Get market cap and volume metrics
+                    const marketCapInfo = volumeData.data[0][
+                        "data.Solana.marketcap"
+                    ]?.find(
+                        (v) =>
+                            v.TokenSupplyUpdate.Currency.MintAddress ===
+                            tokenAddress
+                    );
+
+                    if (!marketCapInfo) continue;
+
+                    const marketCap = parseFloat(
+                        marketCapInfo.TokenSupplyUpdate.PostBalanceInUSD
+                    );
+                    const volume24h = parseFloat(
+                        volumeData.metadata.time_1h_ago
+                    );
+                    const volumeToMarketCapRatio = volume24h / marketCap;
+
+                    // Calculate total percentage held by top holders
+                    const topHoldersPercentage = topHolders.reduce(
+                        (sum, holder) => sum + parseFloat(holder.percentage),
+                        0
+                    );
+
+                    // Criteria for sleeper token:
+                    // 1. Top holders own >50% combined
+                    // 2. Low volume relative to market cap (<5%)
+                    // 3. Has meaningful market cap (filter out very small caps)
+                    if (
+                        topHoldersPercentage > 50 &&
+                        volumeToMarketCapRatio < 0.05 &&
+                        marketCap > 100000 // $100k minimum market cap
+                    ) {
+                        sleeperTokens.push({
+                            token_name: token.TokenSupplyUpdate.Currency.Name,
+                            symbol: token.TokenSupplyUpdate.Currency.Symbol,
+                            mint_address: tokenAddress,
+                            top_holders_percentage:
+                                topHoldersPercentage.toFixed(2),
+                            volume_to_mcap: (
+                                volumeToMarketCapRatio * 100
+                            ).toFixed(2),
+                            market_cap: marketCap.toFixed(2),
+                        });
+                    }
+                } catch (error) {
+                    elizaLogger.error(
+                        `Error processing token ${token.TokenSupplyUpdate.Currency.Symbol}:`,
+                        error
+                    );
+                    continue;
+                }
+            }
+
+            if (callback && sleeperTokens.length > 0) {
+                const title = "🔍 Potential Sleeper Tokens Analysis";
+                const header =
+                    "| Token | Top Holders % | Vol/MCap % | Market Cap ($) |";
+                const separator =
+                    "|--------|--------------|------------|---------------|";
+                const rows = sleeperTokens
+                    .map(
+                        (token) =>
+                            `| ${token.token_name} (${token.symbol}) | ${
+                                token.top_holders_percentage
+                            }% | ${token.volume_to_mcap}% | $${Number(
+                                token.market_cap
+                            ).toLocaleString()} |`
+                    )
+                    .join("\n");
+
+                callback({
+                    text: `${title}\n\n${header}\n${separator}\n${rows}\n\n💡 These tokens show strong accumulation patterns with high holder concentration and low trading volume relative to their market cap. This could indicate potential future price movement.`,
+                    content: sleeperTokens,
+                });
+                return true;
+            } else {
+                callback({
+                    text: "No potential sleeper tokens found matching the criteria at this time.",
+                    content: [],
+                });
+                return true;
+            }
+        } catch (error: any) {
+            elizaLogger.error("Error in sleeper tokens handler:", error);
+            callback({
+                text: `Error analyzing sleeper tokens: ${error.message}`,
+                content: { error: error.message },
+            });
+            return false;
+        }
+    },
+    examples: getSleeperTokensExample as ActionExample[][], // You'll need to create this
+} as Action;
+
+// ... existing code ...
