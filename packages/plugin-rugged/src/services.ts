@@ -15,7 +15,7 @@ export const getTokenInformation = async (
         const response = await fetch(
             `${SERVER_URL}/tools/pump-info/${token_address}`
         );
-        const data = await response.json();
+        const {data} = await response.json();
         return data;
     } catch (error) {
         console.error("Error fetching token_address information:", error);
@@ -30,7 +30,7 @@ export const getTokenTopHolders = async (
         const response = await fetch(
             `${SERVER_URL}/tools/pumpfun-top-holders/${token_address}`
         );
-        const data = await response.json();
+        const { data } = await response.json();
         return data;
     } catch (error) {
         console.error("Error fetching token_address top holders:", error);
@@ -46,7 +46,7 @@ export const getTokenDevHolding = async (
         const response = await fetch(
             `${SERVER_URL}/tools/pumpfun-dev-holding/${dev_address}/${token_address}`
         );
-        const data = await response.json();
+        const {data} = await response.json();
         return data;
     } catch (error) {
         console.error("Error fetching dev holding token_address:", error);
@@ -61,7 +61,7 @@ export const getTokenVolumeMarketcap = async (
         const response = await fetch(
             `${SERVER_URL}/tools/pump-volume-marketcap/${token_address}`
         );
-        const data = await response.json();
+        const {data} = await response.json();
         return data;
     } catch (error) {
         console.error("Error fetching token_address marketcap:", error);
@@ -76,7 +76,7 @@ export const getTopTokenMarketcap =
                 `${SERVER_URL}/tools/pump-top-market-cap`
             );
 
-            const data = await response.json();
+            const {data} = await response.json();
             return data;
         } catch (error) {
             console.error("Error fetching top token marketcap:", error);

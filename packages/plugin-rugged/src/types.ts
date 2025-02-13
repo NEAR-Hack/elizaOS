@@ -1,11 +1,11 @@
 export interface TokenHolder {
     holder_address: string;
-    percentage: string;
+    percentage: number; // Changed from string to number to match the new response format
     token_name: string;
     symbol: string;
 }
 
-export type TokenHolderResponse = TokenHolder[];
+export type TokenHolderResponse = { data: TokenHolder[] }; // Updated to match the new response structure
 
 export type TokenDevHoldingResponse = `${number}.${number}`;
 
